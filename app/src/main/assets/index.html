@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YT Downloader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#12141d; --surface:#1b1e2b; --surface2:#232738; --line:#2e3348;
+  --text:#eceef6; --muted:#8c92ad; --violet:#7b6cff; --violet-d:#5f50e6; --amber:#ffc24d; --red:#ff6b81; --green:#4fd69c;
+  --display:'Bricolage Grotesque',-apple-system,'Helvetica Neue',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;min-height:100vh;color:var(--text);font:16px/1.5 var(--display);
+  background:radial-gradient(900px 420px at 85% -10%,rgba(123,108,255,.18),transparent 60%),var(--bg)}
+main{max-width:720px;margin:0 auto;padding:56px 20px 80px}
+h1{font-size:clamp(34px,6vw,52px);line-height:1.02;font-weight:800;letter-spacing:-.03em;margin:0 0 12px}
+.lede{color:var(--muted);margin:0 0 32px;max-width:46ch}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px}
+.stack>*+*{margin-top:16px}
+
+/* URL */
+.urlrow{display:flex;gap:10px}
+.urlrow input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--text);
+  font:inherit;padding:14px 16px;border-radius:12px}
+.urlrow input::placeholder{color:#5d6380}
+.btn{font:inherit;font-weight:600;border:0;border-radius:12px;padding:14px 20px;cursor:pointer;color:#fff;background:var(--violet);transition:background .15s,transform .1s}
+.btn:hover{background:var(--violet-d)} .btn:active{transform:scale(.98)}
+.btn:disabled{background:var(--surface2);color:#666c88;cursor:not-allowed;transform:none}
+.btn.ghost{background:var(--surface2);color:var(--text)} .btn.ghost:hover{background:#2c3146}
+.btn.big{width:100%;font-size:17px;padding:16px}
+
+/* Preview */
+.preview{display:flex;gap:14px;align-items:center}
+.thumb{width:132px;aspect-ratio:16/9;border-radius:10px;background:var(--surface2) center/cover;flex:none;position:relative}
+.dur{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.78);font:500 12px var(--mono);padding:2px 6px;border-radius:5px}
+.ptitle{font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pmeta{color:var(--muted);font-size:14px;margin-top:4px}
+.skeleton{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}
+
+/* Quality */
+.label{font-size:14px;color:var(--muted);margin:0 0 8px;font-weight:600}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{display:block;border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer;background:var(--bg);transition:border-color .15s,background .15s}
+.seg label b{display:block;font-size:15px}
+.seg label small{color:var(--muted);font-size:12px}
+.seg input:checked+label{border-color:var(--violet);background:rgba(123,108,255,.14)}
+.seg input:focus-visible+label{outline:2px solid var(--amber);outline-offset:2px}
+
+/* Clip */
+.cliphead{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.cliphead h2{font-size:18px;margin:0;font-weight:600}
+.cliphead p{margin:2px 0 0;font-size:14px;color:var(--muted)}
+.switch{position:relative;width:48px;height:28px;flex:none}
+.switch input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0;z-index:2}
+.switch i{position:absolute;inset:0;background:var(--surface2);border:1px solid var(--line);border-radius:99px;transition:background .2s}
+.switch i::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s}
+.switch input:checked+i{background:var(--amber);border-color:var(--amber)}
+.switch input:checked+i::after{transform:translateX(20px);background:#241a00}
+.switch input:focus-visible+i{outline:2px solid #fff;outline-offset:2px}
+.switch input:disabled{cursor:not-allowed} .switch input:disabled+i{opacity:.4}
+
+#clipbody{display:none;margin-top:18px}
+#clipbody.on{display:block}
+
+/* Live preview */
+.pv{position:relative;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden}
+.pv iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.pvbar{display:flex;align-items:center;gap:12px;margin:10px 0 14px}
+.pvbar .btn{padding:10px 16px;font-size:14px}
+#pvmsg{font-size:13px;color:var(--red)}
+
+/* Timeline: potongan film, bagian terpilih disorot amber */
+.tl{position:relative;height:64px;border-radius:10px;background:var(--surface2);margin:4px 0 14px;overflow:hidden;user-select:none}
+.strip{position:absolute;inset:0;background-size:auto 100%;background-repeat:repeat-x;opacity:.55}
+.strip::before,.strip::after{content:"";position:absolute;left:0;right:0;height:7px;
+  background:repeating-linear-gradient(90deg,transparent 0 5px,rgba(18,20,29,.9) 5px 11px,transparent 11px 16px)}
+.strip::before{top:3px} .strip::after{bottom:3px}
+.shade{position:absolute;top:0;bottom:0;background:rgba(18,20,29,.78);pointer-events:none}
+.ph{position:absolute;top:0;bottom:0;width:2px;background:#fff;pointer-events:none;display:none}
+.sel{position:absolute;top:0;bottom:0;border:3px solid var(--amber);border-radius:8px;pointer-events:none}
+.tl input[type=range]{position:absolute;inset:0;width:100%;height:100%;margin:0;background:none;-webkit-appearance:none;appearance:none;pointer-events:none}
+.tl input[type=range]::-webkit-slider-runnable-track{background:none;height:100%}
+.tl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;cursor:ew-resize;width:18px;height:64px;background:var(--amber);border-radius:6px;border:0;
+  background-image:linear-gradient(90deg,transparent 7px,#241a00 7px 9px,transparent 9px)}
+.tl input[type=range]::-moz-range-track{background:none;height:100%}
+.tl input[type=range]::-moz-range-thumb{pointer-events:auto;cursor:ew-resize;width:18px;height:64px;background:var(--amber);border-radius:6px;border:0}
+.tl input[type=range]:focus-visible::-webkit-slider-thumb{outline:2px solid #fff}
+
+.times{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.times label{font-size:13px;color:var(--muted);display:block;margin-bottom:4px}
+.times input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--amber);font:500 20px var(--mono);padding:10px 12px;border-radius:10px}
+.times input.bad{border-color:var(--red);color:var(--red)}
+.clipinfo{margin-top:12px;font-size:14px;color:var(--muted)}
+.clipinfo b{color:var(--amber);font-family:var(--mono);font-weight:500}
+.chk{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:14px;color:var(--muted);cursor:pointer}.chk input{accent-color:var(--amber);width:16px;height:16px}
+.hint{font-size:13px;color:#6c7292;margin-top:6px}
+
+/* Progress */
+#prog{display:none}
+#prog.on{display:block}
+.track{background:var(--surface2);height:14px;border-radius:99px;overflow:hidden}
+.fill{height:100%;width:0;background:linear-gradient(90deg,var(--violet),#a89cff);border-radius:99px;transition:width .4s ease}
+.fill.done{background:var(--green)}
+.row{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted);margin-top:8px}
+.row .mono{font-family:var(--mono)}
+.pstage{font-weight:600;color:var(--text);font-size:15px}
+#msg{font-size:14px;white-space:pre-wrap;word-break:break-word}
+#msg.err{color:var(--red)}
+#msg a{color:var(--green);font-weight:600}
+#cancel{margin-top:12px;display:none} #cancel.on{display:block}
+
+footer{margin-top:28px;color:#5d6380;font-size:13px}
+@media(max-width:560px){
+  .seg{grid-template-columns:1fr 1fr}
+  .preview{flex-direction:column;align-items:stretch}.thumb{width:100%}
+  .urlrow{flex-direction:column}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main class="stack">
+  <div>
+    <h1>Unduh videonya,<br>atau cuma bagian yang kamu mau.</h1>
+    <p class="lede">Tempel link YouTube, pilih kualitas, lalu potong berdasarkan menit dan detik jika tidak butuh seluruh durasi.</p>
+  </div>
+
+  <section class="card">
+    <div class="urlrow">
+      <input id="url" type="url" inputmode="url" placeholder="Tempel link YouTube" autocomplete="off" aria-label="Link YouTube">
+      <button class="btn ghost" id="check" type="button">Cek video</button>
+    </div>
+    <div id="preview" class="preview" style="margin-top:16px" hidden>
+      <div class="thumb" id="thumb"><span class="dur" id="dur"></span></div>
+      <div><div class="ptitle" id="ptitle"></div><div class="pmeta" id="pmeta"></div></div>
+    </div>
+    <div id="infoerr" class="hint" style="color:var(--red)"></div>
+  </section>
+
+  <section class="card">
+    <p class="label">Kualitas</p>
+    <div class="seg" role="radiogroup">
+      <input type="radio" name="q" id="q-best" value="best" checked><label for="q-best"><b>Tertinggi</b><small>4K/8K · MKV</small></label>
+      <input type="radio" name="q" id="q-1080" value="1080"><label for="q-1080"><b>1080p</b><small>MP4 · QuickTime</small></label>
+      <input type="radio" name="q" id="q-720" value="720"><label for="q-720"><b>720p</b><small>MP4 · hemat</small></label>
+      <input type="radio" name="q" id="q-audio" value="audio"><label for="q-audio"><b>Audio</b><small>MP3</small></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="cliphead">
+      <div>
+        <h2>Potong bagian tertentu</h2>
+        <p id="clipsub">Cek video dulu untuk mengaktifkan.</p>
+      </div>
+      <span class="switch"><input type="checkbox" id="clipon" aria-label="Aktifkan potong" disabled><i></i></span>
+    </div>
+    <div id="clipbody">
+      <div class="pv"><div id="player"></div></div>
+      <div class="pvbar"><button class="btn ghost" id="playbtn" type="button">▶ Putar potongan</button><span id="pvmsg"></span></div>
+      <div class="tl" id="tl">
+        <div class="strip" id="strip"></div>
+        <div class="shade" id="shl" style="left:0"></div>
+        <div class="shade" id="shr" style="right:0"></div>
+        <div class="sel" id="sel"></div>
+        <div class="ph" id="ph"></div>
+        <input type="range" id="rs" min="0" value="0" step="1" aria-label="Waktu mulai">
+        <input type="range" id="re" min="0" value="0" step="1" aria-label="Waktu selesai">
+      </div>
+      <div class="times">
+        <div><label for="ts">Mulai</label><input id="ts" value="0:00" inputmode="decimal" autocomplete="off"></div>
+        <div><label for="te">Selesai</label><input id="te" value="0:00" inputmode="decimal" autocomplete="off"></div>
+      </div>
+      <div class="clipinfo" id="clipinfo"></div>
+      <label class="chk"><input type="checkbox" id="precise"> Potongan presisi (lebih lambat, di-encode ulang)</label>
+      <div class="hint">Pratinjau memakai pemutar YouTube. Tanpa mode presisi, awal potongan bisa mundur ke keyframe terdekat.</div>
+      <div class="hint">Geser gagang amber, atau ketik waktu. Format: <span style="font-family:var(--mono)">90</span>, <span style="font-family:var(--mono)">1:30</span>, atau <span style="font-family:var(--mono)">1:02:03</span>.</div>
+    </div>
+  </section>
+
+  <button class="btn big" id="go" type="button">Download</button>
+
+  <section class="card" id="prog">
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <div class="row"><span class="pstage" id="stage"></span><span class="mono" id="pct"></span></div>
+    <div class="row"><span class="mono" id="size"></span><span class="mono" id="spd"></span></div>
+    <button class="btn ghost" id="cancel" type="button">Batalkan</button>
+    <div id="msg" style="margin-top:12px"></div>
+  </section>
+
+  <footer>File tersimpan di folder Download/YT (buka lewat aplikasi File / Galeri)</footer>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let info = null, polling = null, currentJob = null;
+
+const fmt = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
+  const p = n => String(n).padStart(2,'0'); return h ? h+':'+p(m)+':'+p(x) : m+':'+p(x); };
+const parse = v => { v = String(v).trim(); if (v === '') return null; const parts = v.split(':');
+  if (parts.length > 3 || parts.some(p => !/^\d+(\.\d+)?$/.test(p))) return NaN;
+  return parts.reduce((a,p) => a*60 + parseFloat(p), 0); };
+const mb = b => (b/1048576).toFixed(1) + ' MB';
+
+/* ---------- Info video ---------- */
+const post = (u, body) => fetch(u, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)}).then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error); return j; });
+let infoToken = 0;
+async function fetchInfo() {
+  const url = $('url').value.trim(), token = ++infoToken;
+  $('infoerr').textContent = '';
+  if (!url) return;
+  $('preview').hidden = false; $('ptitle').textContent = 'Mengambil info video...'; $('pmeta').textContent = '';
+  $('ptitle').classList.add('skeleton'); $('thumb').style.backgroundImage = ''; $('dur').textContent = '';
+  info = null; setClipAvailable(false);
+  // Tahap 1: judul + thumbnail (cepat)
+  post('/api/oembed', {url}).then(j => {
+    if (token !== infoToken || info) return;
+    $('ptitle').textContent = j.title; $('pmeta').textContent = j.channel;
+    $('thumb').style.backgroundImage = 'url("' + j.thumbnail + '")'; $('strip').style.backgroundImage = 'url("' + j.thumbnail + '")';
+    $('ptitle').classList.remove('skeleton'); enableManual('Mengambil durasi... kamu sudah bisa isi waktu manual.');
+  }).catch(() => {});
+  // Tahap 2: durasi (lebih lama)
+  try {
+    const j = await post('/api/info', {url});
+    if (token !== infoToken) return;
+    info = j;
+    $('ptitle').textContent = j.title; $('pmeta').textContent = j.channel;
+    $('thumb').style.backgroundImage = 'url("' + j.thumbnail + '")'; $('strip').style.backgroundImage = 'url("' + j.thumbnail + '")';
+    $('dur').textContent = j.duration ? fmt(j.duration) : 'LIVE';
+    setClipAvailable(!!j.duration && !j.live);
+  } catch (e) {
+    if (token !== infoToken) return;
+    $('infoerr').textContent = e.message + ' (kamu masih bisa download tanpa potong)';
+    enableManual('Durasi tidak terbaca. Isi waktu mulai dan selesai manual.');
+  } finally { if (token === infoToken) { $('ptitle').classList.remove('skeleton'); syncPlayer(); } }
+}
+$('check').onclick = fetchInfo;
+$('url').addEventListener('paste', () => setTimeout(fetchInfo, 50));
+$('url').addEventListener('keydown', e => { if (e.key === 'Enter') fetchInfo(); });
+
+/* ---------- Potong ---------- */
+function setClipAvailable(ok) {
+  $('clipon').disabled = !ok;
+  $('tl').style.display = '';
+  if (!ok) { $('clipon').checked = false; $('clipbody').classList.remove('on'); }
+  $('clipsub').textContent = ok ? 'Ambil dari detik tertentu sampai detik tertentu.' : 'Cek video dulu untuk mengaktifkan.';
+  if (ok) {
+    const d = Math.floor(info.duration);
+    $('rs').max = $('re').max = d;
+    if ($('clipon').checked) syncFromText();
+    else { $('rs').value = 0; $('re').value = d; syncFromSliders(); }
+  }
+}
+// Mode manual: durasi belum/tidak diketahui, waktu diketik sendiri
+function enableManual(sub) {
+  if (info) return;
+  $('clipon').disabled = false; $('tl').style.display = 'none';
+  $('rs').max = $('re').max = 86400; $('ts').value = '0:00'; $('te').value = '';
+  $('clipsub').textContent = sub; paint();
+}
+$('clipon').onchange = () => {
+  $('clipbody').classList.toggle('on', $('clipon').checked);
+  if ($('clipon').checked) syncPlayer(); else stopPlay(true);
+};
+
+/* ---------- Live preview (YouTube IFrame API) ---------- */
+let yt = null, ytReady = false, ytId = null, ytApi = null, playTimer = null, seekAt = 0;
+const vidId = u => { const m = u.match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/live\/|\/embed\/)([\w-]{11})/); return m && m[1]; };
+const loadYT = () => ytApi || (ytApi = new Promise((res, rej) => {
+  if (window.YT && YT.Player) return res();
+  window.onYouTubeIframeAPIReady = res;
+  const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; s.onerror = rej;
+  document.head.appendChild(s);
+}));
+async function syncPlayer() {
+  const id = vidId($('url').value.trim());
+  if (!$('clipon').checked || !id || id === ytId) return;
+  ytId = id; $('pvmsg').textContent = '';
+  try { await loadYT(); } catch { ytId = null; ytApi = null; $('pvmsg').textContent = 'Pemutar tidak termuat (cek koneksi). Download tetap bisa.'; return; }
+  if (yt) { stopPlay(true); yt.cueVideoById({ videoId: id, startSeconds: +$('rs').value }); return; }
+  yt = new YT.Player('player', {
+    videoId: id, playerVars: { rel: 0, playsinline: 1, start: Math.floor(parse($('ts').value) || 0) },
+    events: {
+      onReady: () => { ytReady = true; },
+      onStateChange: e => { if (e.data === 0 || e.data === 2) stopPlay(); },
+      onError: () => { $('pvmsg').textContent = 'Video ini tidak bisa dipratinjau (embed dilarang). Download tetap bisa.'; },
+    },
+  });
+}
+const clipRange = () => { const s = parse($('ts').value), e = parse($('te').value); return [Number.isNaN(s) || s == null ? 0 : s, Number.isNaN(e) || e == null ? Infinity : e]; };
+function seekTo(t, throttle) {
+  if (!ytReady) return;
+  const n = Date.now(); if (throttle && n - seekAt < 150) return; seekAt = n;
+  stopPlay(); yt.seekTo(Math.max(0, t), true); yt.pauseVideo();
+}
+function stopPlay(pause) {
+  clearInterval(playTimer); playTimer = null; $('ph').style.display = 'none'; $('playbtn').textContent = '▶ Putar potongan';
+  if (pause && ytReady) yt.pauseVideo();
+}
+$('playbtn').onclick = () => {
+  if (!ytReady) return;
+  if (playTimer) return stopPlay(true);
+  const [s, e] = clipRange();
+  yt.seekTo(s, true); yt.playVideo(); $('playbtn').textContent = '■ Berhenti';
+  playTimer = setInterval(() => {
+    const t = yt.getCurrentTime();
+    if (info) { $('ph').style.display = 'block'; $('ph').style.left = Math.min(t / info.duration * 100, 100) + '%'; }
+    if (t >= e) stopPlay(true);
+  }, 100);
+};
+// Geser gagang -> frame di pemutar ikut pindah (throttle saat drag, pasti saat dilepas)
+$('rs').addEventListener('input', () => seekTo(+$('rs').value, true));
+$('re').addEventListener('input', () => seekTo(Math.max(+$('re').value - 0.5, 0), true));
+$('rs').addEventListener('change', () => seekTo(+$('rs').value));
+$('re').addEventListener('change', () => seekTo(Math.max(+$('re').value - 0.5, 0)));
+$('ts').addEventListener('change', () => { if (!$('ts').classList.contains('bad')) seekTo(clipRange()[0]); });
+$('te').addEventListener('change', () => { const e = clipRange()[1]; if (!$('te').classList.contains('bad') && isFinite(e)) seekTo(Math.max(e - 0.5, 0)); });
+
+function paint() {
+  if (!info) { $('clipinfo').textContent = 'Durasi video tidak diketahui. Kosongkan "Selesai" untuk sampai akhir video.'; return; }
+  const d = info ? info.duration : 1, s = +$('rs').value, e = +$('re').value;
+  const l = s / d * 100, r = e / d * 100;
+  $('shl').style.width = l + '%'; $('shr').style.width = (100 - r) + '%';
+  $('sel').style.left = l + '%'; $('sel').style.width = (r - l) + '%';
+  $('clipinfo').innerHTML = 'Durasi potongan: <b>' + fmt(e - s) + '</b> dari ' + fmt(d);
+}
+function syncFromSliders() { $('ts').value = fmt($('rs').value); $('te').value = fmt($('re').value); paint(); }
+$('rs').oninput = () => { if (+$('rs').value > +$('re').value - 1) $('rs').value = +$('re').value - 1; syncFromSliders(); };
+$('re').oninput = () => { if (+$('re').value < +$('rs').value + 1) $('re').value = +$('rs').value + 1; syncFromSliders(); };
+function syncFromText() {
+  const s = parse($('ts').value), e = parse($('te').value), d = info ? info.duration : Infinity;
+  $('ts').classList.toggle('bad', Number.isNaN(s) || s >= d);
+  $('te').classList.toggle('bad', Number.isNaN(e) || e > d + 1 || (e != null && s != null && e <= s));
+  if (!Number.isNaN(s) && s != null) $('rs').value = Math.min(s, d);
+  if (!Number.isNaN(e) && e != null) $('re').value = Math.min(e, d);
+  paint();
+}
+$('ts').oninput = $('te').oninput = syncFromText;
+$('ts').onblur = $('te').onblur = () => { if (!$('ts').classList.contains('bad') && !$('te').classList.contains('bad')) syncFromSliders(); };
+
+/* ---------- Download ---------- */
+function showMsg(text, err, html) { const m = $('msg'); m.className = err ? 'err' : ''; html ? (m.innerHTML = text) : (m.textContent = text); }
+
+$('go').onclick = async () => {
+  const url = $('url').value.trim();
+  if (!url) { $('infoerr').textContent = 'Tempel link YouTube dulu.'; return; }
+  const body = { url, quality: document.querySelector('input[name=q]:checked').value };
+  if ($('clipon').checked) {
+    if ($('ts').classList.contains('bad') || $('te').classList.contains('bad')) { $('infoerr').textContent = 'Periksa waktu mulai/selesai (kotak merah).'; return; }
+    body.clip = { start: $('ts').value, end: $('te').value, precise: $('precise').checked };
+  }
+  $('infoerr').textContent = '';
+  showMsg('', false); $('prog').classList.add('on'); $('fill').className = 'fill'; $('fill').style.width = '0';
+  $('stage').textContent = 'Menyiapkan...'; $('pct').textContent = $('size').textContent = $('spd').textContent = '';
+  $('go').disabled = true; $('cancel').classList.add('on');
+  const r = await fetch('/api/download', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const j = await r.json();
+  if (!r.ok) { showMsg(j.error, true); $('go').disabled = false; $('cancel').classList.remove('on'); return; }
+  currentJob = j.id;
+  clearInterval(polling);
+  polling = setInterval(poll, 500);
+};
+
+async function poll() {
+  const s = await (await fetch('/api/status/' + currentJob)).json();
+  $('fill').style.width = s.percent + '%'; $('pct').textContent = s.percent.toFixed(1) + '%'; $('stage').textContent = s.stage;
+  $('size').textContent = s.total ? mb(s.downloaded) + ' / ' + mb(s.total) : '';
+  $('spd').textContent = s.speed ? mb(s.speed) + '/s' + (s.eta != null ? ' · sisa ' + s.eta + ' dtk' : '') : '';
+  if (s.status === 'running') return;
+  clearInterval(polling); $('go').disabled = false; $('cancel').classList.remove('on');
+  if (s.status === 'done') {
+    $('fill').classList.add('done');
+    $('msg').className = ''; $('msg').textContent = 'Selesai, tersimpan di Download/YT: ' + s.file;
+  } else if (s.status === 'cancelled') showMsg('Dibatalkan.', false);
+  else showMsg(s.error.slice(-600) || 'Terjadi kesalahan.', true);
+}
+$('cancel').onclick = () => fetch('/api/cancel/' + currentJob, {method:'POST'});
+</script>
+</body>
+</html>
